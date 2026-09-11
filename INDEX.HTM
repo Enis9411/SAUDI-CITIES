@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مدن وقرى المملكة الذكية 🇸🇦</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    #map { height: 580px; width: 100%; border-radius: 1.25rem; z-index: 1; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans p-3 md:p-6">
+
+  <div class="max-w-7xl mx-auto space-y-6">
+    <header class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4 border-b pb-4 mb-4">
+        <div>
+          <div class="inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 px-3.5 py-1 rounded-full text-xs font-bold border border-emerald-200 mb-2">
+            <span>🇸🇦</span> رحلة عبر تاريخ وحاضر مدن وقرى الوطن
+          </div>
+          <h1 class="text-2xl md:text-4xl font-extrabold text-emerald-950">موسوعة مدن وقرى السعودية</h1>
+        </div>
+
+        <button id="toggleQuizBtn" onclick="toggleQuizView()" 
+                class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-sm transition flex items-center gap-2 cursor-pointer">
+          <span>🎯</span> <span id="quizBtnText">اختبر معلوماتك الوطنية</span>
+        </button>
+      </div>
+
+      <div id="mapControls" class="space-y-4">
+        <div class="max-w-md mx-auto">
+          <input id="searchInput" type="text" placeholder="🔎 ابحث بالاسم، المعلم، البحر، أو القصة التاريخية..." 
+                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-sm text-sm">
+        </div>
+
+        <div class="flex flex-wrap justify-center gap-2 pt-1">
+          <button onclick="filterCategory('all')" class="px-3.5 py-1.5 rounded-full bg-emerald-700 text-white text-xs md:text-sm font-semibold hover:bg-emerald-800 transition">الكل</button>
+          <button onclick="filterCategory('مدن')" class="px-3.5 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs md:text-sm font-semibold border hover:bg-slate-200 transition">🏙️ مدن كبرى</button>
+          <button onclick="filterCategory('بحر')" class="px-3.5 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs md:text-sm font-semibold border hover:bg-slate-200 transition">🌊 بحرية وساحلية</button>
+          <button onclick="filterCategory('قرى ومحافظات')" class="px-3.5 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs md:text-sm font-semibold border hover:bg-slate-200 transition">🏡 قرى وتراث</button>
+          <button onclick="filterCategory('طبيعة')" class="px-3.5 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs md:text-sm font-semibold border hover:bg-slate-200 transition">🏔️ طبيعة وجبال</button>
+          <button onclick="filterCategory('تاريخ ومقدسات')" class="px-3.5 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs md:text-sm font-semibold border hover:bg-slate-200 transition">🕌 تاريخ ومقدسات</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- قسم اختبار المعلومات -->
+    <div id="quizSection" class="hidden bg-white p-6 md:p-10 rounded-2xl shadow-sm border border-slate-200 max-w-3xl mx-auto space-y-6 text-center">
+      <div class="space-y-2">
+        <span class="text-xs font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded-full">تحدي المعرفة السعودية 🇸🇦</span>
+        <h2 class="text-2xl font-black text-slate-900" id="quizQuestionText">سؤال المسابقة</h2>
+        <p class="text-xs text-slate-500">السؤال <span id="currentQuestionNum">1</span> من <span id="totalQuestionsNum">5</span></p>
+      </div>
+
+      <div id="quizOptions" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-right pt-2"></div>
+      <div id="quizFeedback" class="text-sm font-bold min-h-[24px]"></div>
+
+      <div class="flex items-center justify-between border-t pt-4 text-xs font-semibold text-slate-500">
+        <span>النقاط: <strong id="scoreCounter" class="text-emerald-700 text-sm">0</strong></span>
+        <button id="nextQuestionBtn" onclick="nextQuestion()" class="hidden px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition cursor-pointer">
+          السؤال التالي
+        </button>
+      </div>
+    </div>
+
+    <!-- قسم الخريطة والبطاقة -->
+    <div id="mainMapSection" class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <div class="lg:col-span-2 bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
+        <div id="map"></div>
+      </div>
+
+      <div id="cityCard" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4 max-h-[580px] overflow-y-auto">
+        <div class="border-b pb-3">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <span id="cityType" class="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-full font-bold">استكشف</span>
+            <span id="citySeaBadge" class="text-xs bg-cyan-100 text-cyan-800 px-2.5 py-0.5 rounded-full font-semibold hidden">🌊 منطقة ساحلية</span>
+          </div>
+          <h2 id="cityName" class="text-2xl font-bold text-slate-900">اختر مدينة أو قرية</h2>
+          <p id="cityDesc" class="text-slate-500 text-xs mt-1">اضغط على أي دبوس في الخريطة أو زر تصنيف لعرض قصتها ومعالمها.</p>
+        </div>
+        
+        <div id="detailsList" class="space-y-3.5 text-sm leading-relaxed hidden">
+          <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 space-y-1">
+            <span class="font-bold text-amber-900 flex items-center gap-1">⏳ كيف كانت زمان وكيف أصبحت اليوم:</span>
+            <p class="text-slate-700 text-xs"><strong class="text-amber-800">زمان:</strong> <span id="cityThen"></span></p>
+            <p class="text-slate-700 text-xs"><strong class="text-emerald-800">اليوم:</strong> <span id="cityNow"></span></p>
+          </div>
+
+          <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+            <span class="font-bold text-emerald-900 block mb-1">🇸🇦 في مسيرة الوطن واليوم الوطني:</span>
+            <span id="cityNational" class="text-slate-700 text-xs block"></span>
+          </div>
+
+          <div><strong class="text-emerald-800 block">🏛️ أشهر المعالم والمواقع:</strong> <span id="cityLandmarks" class="text-slate-600 text-xs"></span></div>
+          <div><strong class="text-emerald-800 block">🌿 الطبيعة والبيئة:</strong> <span id="cityNature" class="text-slate-600 text-xs"></span></div>
+          <div><strong class="text-emerald-800 block">🍽️ أكلات وأشياء تشتهر بها:</strong> <span id="cityFood" class="text-slate-600 text-xs"></span></div>
+          <div><strong class="text-emerald-800 block">📜 نبذة تاريخية وأصالة:</strong> <span id="cityHistory" class="text-slate-600 text-xs"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var cities = [
+      {
+        name: "الدرعية",
+        type: "قرى ومحافظات",
+        isSea: false,
+        coords: [24.7339, 46.5750],
+        desc: "مهد انطلاقة الدولة السعودية الأولى وأيقونة الطين والتاريخ الخالد.",
+        then: "واحة نجدية محصنة بالأسوار الطينية على ضفاف وادي حنيفة أسس فيها الإمام محمد بن سعود الدولة.",
+        now: "وجهة سياحية وثقافية عالمية تضم حي الطريف التاريخي ومطل البجيري الفاخر.",
+        national: "هي جوهر يوم التأسيس وفخر اليوم الوطني؛ منها بدأ تاريخ الدولة السعودية الأولى عام 1727م.",
+        landmarks: "حي الطريف التاريخي، قصر سلوى، مطل البجيري",
+        nature: "واحات نخيل نجدية وتكوينات صخرية لوادي حنيفة",
+        food: "الجريش النجدي، المراهيف، كليجا التمر",
+        history: "عاصمة الدولة السعودية الأولى ومصدر الهوية والعزيمة النجدية."
+      },
+      {
+        name: "مكة المكرمة",
+        type: "تاريخ ومقدسات",
+        isSea: false,
+        coords: [21.3891, 39.8579],
+        desc: "أقدس بقاع الأرض، قبلة المسلمين ومهبط الوحي الأمين.",
+        then: "واد غير ذي زرع تحيط به الجبال الصخرية وتجارة القوافل القديمة.",
+        now: "عاصمة إسلامية كبرى بأضخم توسعات معمارية في التاريخ وشبكات قطارات ذكية لخدمة ضيوف الرحمن.",
+        national: "أولى المدن التي حظيت بعناية ملوك السعودية منذ عهد المؤسس عبر أكبر عمارة وتوسعة للحرم المكي.",
+        landmarks: "المسجد الحرام والكعبة المشرفة، جبل النور، برج الساعة",
+        nature: "سلاسل جبال صخرية شاهقة وأودية تاريخية مقدسة",
+        food: "السليق، المعمول، الدبيازة، القهوة المكية بالمستكة",
+        history: "حاضنة تاريخ النبوة والرسالة الإلهية ومركز أفئدة المسلمين."
+      },
+      {
+        name: "المدينة المنورة",
+        type: "تاريخ ومقدسات",
+        isSea: false,
+        coords: [24.5247, 39.5692],
+        desc: "طيبة الطيبة ومأرز الإيمان ومهاجر رسول الله عليه الصلاة والسلام.",
+        then: "واحة زراعية محاطة بالحرّات البركانية تشتهر بآبارها ونخيلها.",
+        now: "مدينة ذكية متطورة تتمتع بهدوء روحاني ومراكز حضارية وثقافية متقدمة.",
+        national: "رمز الوحدة والتآخي؛ حظيت بتوسعات تاريخية للمسجد النبوي ورعاية مستمرة في العهد السعودي.",
+        landmarks: "المسجد النبوي الشريف، مسجد قباء، جبل أحد",
+        nature: "واحات نخل غناء تحيط بها لابات بركانية بازلتية وجبال تاريخية",
+        food: "تمور العجوة، الشريك المديني، النعناع المديني العطري",
+        history: "أول عاصمة في الإسلام ونواة الدولة والمجتمع النبوي الأول."
+      },
+      {
+        name: "الرياض",
+        type: "مدن",
+        isSea: false,
+        coords: [24.7136, 46.6753],
+        desc: "قلب المملكة النابض وعاصمتها الكبرى ومركز التحول العالمي.",
+        then: "بلدة صغيرة محاطة بالأسوار الطينية وبواباتها القديمة وقصر المصمك.",
+        now: "مدينة ذكية كبرى وناطحات سحاب وقطار الرياض وأكبر مساحات خضراء.",
+        national: "رمز ملحمة استرداد الحكم وتوحيد المملكة بقيادة الملك عبدالعزيز عام 1902م.",
+        landmarks: "قصر المصمك، مركز الملك عبدالله المالي، برج المملكة",
+        nature: "هضبة نجد المفتوحة، حافة العالم، وأودية وادي حنيفة",
+        food: "المطازيز، الجريش، المرقوق، الحنيني",
+        history: "عاصمة الحكم والدولة وملتقى مسيرة البناء والتنمية الحديثة."
+      },
+      {
+        name: "الخبر",
+        type: "بحر",
+        isSea: true,
+        coords: [26.2172, 50.1971],
+        desc: "لؤلؤة الخليج العربي وأيقونة الشرقية العصرية بحدائقها وشواطئها.",
+        then: "قرية صيادين وبحارة صغيرة يعتمد أهلها على صيد الأسماك والغوص على اللؤلؤ.",
+        now: "من أرقى مدن المملكة جودة للحياة بواجهات بحرية ساحرة وجسر الملك فهد.",
+        national: "بوابة اقتصاد الطاقة والصناعة التي رافقت اكتشاف النفط ونهضة المملكة.",
+        landmarks: "كورنيش الخبر، برج المياه، جسر الملك فهد، مركز إثراء القريب",
+        nature: "شواطئ الخليج الهادئة ومساحات خضراء مفتوحة",
+        food: "السمك الكنعد المقلي، الروبيان المحمر، المكبوس الحساوي والشرقاوي",
+        history: "محطة انطلاق تصدير الخير وتاريخ الغوص على اللؤلؤ بالخليج العربي."
+      },
+      {
+        name: "جدة",
+        type: "بحر",
+        isSea: true,
+        coords: [21.5433, 39.1728],
+        desc: "عروس البحر الأحمر وبوابة الحرمين الشريفين وملتقى الثقافات.",
+        then: "مدينة داخل السور التاريخي، مبانيها من حجر الكاشور برواشين خشبية بديعة.",
+        now: "مركز عالمي للسياحة والرياضات البحرية ونادي اليخوت والواجهات الترفيهية.",
+        national: "الميناء الذي استقبل ضيوف الرحمن وخطت به الدولة أولى خطوات الانفتاح الدولي.",
+        landmarks: "حي البلد التاريخي، نافورة الملك فهد، الواجهة البحرية",
+        nature: "شواطئ رملية دافئة وشعاب مرجانية نادرة في أعماق البحر الأحمر",
+        food: "السمك الناجل، الصيادية، السليق، البليلة الحجازية",
+        history: "ميناء تاريخي أسسه الخليفة عثمان بن عفان رضي الله عنه ليكون بوابة مكة المكرمة."
+      },
+      {
+        name: "قرية رجال ألمع",
+        type: "قرى ومحافظات",
+        isSea: false,
+        coords: [18.2198, 42.1758],
+        desc: "عاصمة القصور الحجرية التاريخية وإحدى أجمل القرى التراثية عالميا.",
+        then: "حصون وقصور حجرية متعددة الأدوار على سفوح تهامة ومحطة تجارية عريقة.",
+        now: "قرية سياحية مصنفة كأفضل قرية سياحية من منظمة السياحة العالمية.",
+        national: "شاهد حي على التلاحم والبطولة الجنوبية في بناء الوطن وحمايته.",
+        landmarks: "متحف ألمع للتراث، قصور رجال ألمع المطعمة بحجر المرو الأبيض",
+        nature: "سفوح خضراء مدارية وأودية دائمة الجريان وطبيعة تهامية ساحرة",
+        food: "العريكة بالسمن والعسل البري، الحنيذ على شجر المرخ",
+        history: "تاريخ عريق يعود لمئات السنين وعمارة هندسية فريدة قاومت الزمن."
+      },
+      {
+        name: "قرية ذي عين التراثية",
+        type: "قرى ومحافظات",
+        isSea: false,
+        coords: [19.9297, 41.4422],
+        desc: "القرية الرخامية الأسطورية في قلب الباحة الشامخة.",
+        then: "قلعة وقرية دفاعية مبنية فوق جبل من حجر المرو الأبيض بجوار عين ماء عذبة.",
+        now: "تحفة سياحية وطنية مؤهلة محاطة بمزارع الموز والريحان والكادي.",
+        national: "تجسيد لأصالة الإنسان السعودي وقدرته على نحت المجد من قمم الصخر.",
+        landmarks: "البيوت الرخامية البيضاء، عين الماء العذبة الجارية، مزارع الموز البلدي",
+        nature: "جبل رخامي أبيض وسط واد يفيض بالخضرة والينابيع المتدفقة",
+        food: "الدغابيس الجنوبية، الخبزة المقناة على الجمر، العسل الصيفي",
+        history: "بنيت في القرن العاشر الهجري وصمدت كشاهد على براعة التخطيط المائي والمعماري."
+      },
+      {
+        name: "جزر فرسان",
+        type: "بحر",
+        isSea: true,
+        coords: [16.7056, 42.1197],
+        desc: "أرخبيل الجزر العذراء ومحمية الغزلان واللؤلؤ في جازان.",
+        then: "ملتقى تجار اللؤلؤ الكبار ومحطة ملاحة قديمة في مدخل البحر الأحمر.",
+        now: "أول محمية سعودية تسجل في برنامج الإنسان والمحيط الحيوي باليونسكو ومقصد الغوص.",
+        national: "درع جنوبي بحري يوثق عمق السيادة البحرية للمملكة وغنى ثرواتها الطبيعية.",
+        landmarks: "بيت الرفاعي التاجر، القلعة العثمانية، شاطئ القندل والمانجروف",
+        nature: "غابات مانجروف بحرية، شواطئ فيروزية، ومستوطنات غزلان نادرة",
+        food: "سمك الحريد المشوي، الخمير، المفالت، العيكة الجازانية",
+        history: "سكنتها الحضارات القديمة وشهدت ازدهار تجارة اللؤلؤ وموسم الحريد السنوي."
+      },
+      {
+        name: "تبوك وساحل مقنا نيوم",
+        type: "بحر",
+        isSea: true,
+        coords: [28.3835, 36.5662],
+        desc: "بوابة الشمال التاريخية وأرض مشاريع المستقبل العالمية نيوم.",
+        then: "محطة رئيسية لقوافل الحج الشامي وحصن شمالي عريق وسط الجبال والصحاري.",
+        now: "حاضنة أضخم مشاريع رؤية 2030 نيوم وذا لاين وسندالة.",
+        national: "تجمع بين تاريخ غزوة تبوك وطموح القيادة السعودية بمستقبل كوكب الأرض.",
+        landmarks: "قلعة تبوك، عين السكر، وادي طيب اسم، شواطئ مقنا، مغاير شعيب",
+        nature: "التقاء جبال الجرانيت الحمراء مع شواطئ البحر الصافية وشعاب خليج العقبة",
+        food: "المنسف الشمالي، المجللة، الجريش الأبيض، الخبز المشروح",
+        history: "أرض الحضارات المدينية والنبطية ومحطة تاريخية كبرى في شمال الجزيرة."
+      },
+      {
+        name: "العلا",
+        type: "تاريخ ومقدسات",
+        isSea: false,
+        coords: [26.6080, 37.9250],
+        desc: "متحف التاريخ المفتوح وواحة الحضارات الإنسانية العريقة.",
+        then: "مفترق طرق قوافل البخور القديمة ومقر ممالك دادان ولحيان والأنباط.",
+        now: "عاصمة الآثار والفنون والموسيقى العالمية ومسرح مرايا المذهل.",
+        national: "فخر وطني مسجل في اليونسكو يعكس عمق الجذور التاريخية لأرض الجزيرة العربية.",
+        landmarks: "الحجر مدائن صالح، صخرة الفيل، مسرح مرايا، جبل عكمة",
+        nature: "تشكيلات صخرية ساحرة تتداخل مع بساتين النخيل والحمضيات في الوادي المعلق",
+        food: "تمور البرني، خبز الجمر، الحمضيات العطرية والموالح",
+        history: "آلاف السنين من النقوش والقصور المنحوتة في الصخر دون انقطاع."
+      },
+      {
+        name: "أبها",
+        type: "طبيعة",
+        isSea: false,
+        coords: [18.2164, 42.5053],
+        desc: "عروس الجبل وسيدة الضباب وأعلى قمم المملكة ارتفاعا.",
+        then: "قرى جبلية متفرقة بحصونها الحجرية ومدرجاتها الزراعية الخضراء.",
+        now: "عاصمة السياحة العربية الجبلية، تلفريك السودة، ووجهة الضباب والفعاليات الصيفية.",
+        national: "رمز الصمود والأصالة العسيرية التي تشهد على جمال وتنوع طبيعة بلادنا.",
+        landmarks: "جبل السودة، قرية المفتاحة التشكيلية، قصر شدا، شارع الفن",
+        nature: "غابات العرعر الباردة وقمم تلامس السحاب وضباب مستمر",
+        food: "العريكة الجنوبية، الحنيذ في التنور، المشغوثة بالعسل",
+        history: "إرث حضاري في العمارة وفنون القط العسيري المسجل باليونسكو."
+      },
+      {
+        name: "جبل اللوز (تبوك)",
+        type: "طبيعة",
+        isSea: false,
+        coords: [28.6533, 35.3597],
+        desc: "أيقونة الشتاء وعاصمة الثلوج البيضاء في شمال المملكة.",
+        then: "جبال جرانيتية وعرة وموطن قديم لنقوش ورسومات أثرية وأشجار اللوز البري.",
+        now: "وجهة شتوية وسياحية سنوية يقصدها آلاف الزوار للاستمتاع بالرداء الأبيض الثلجي.",
+        national: "شاهد على تنوع تضاريس الوطن حيث تجتمع الصحراء بالثلوج الناصعة.",
+        landmarks: "قمة جبل اللوز، النقوش الصخرية القديمة، ممر حسمى الجبلي",
+        nature: "قمم جرانيتية حادة وتراكمات ثلجية سنوية تبهر الزوار",
+        food: "المنسف الشمالي، خبز الجمر، الشاي المحروث على الحطب",
+        history: "معلم تاريخي وثقافي عريق لحضارات شمال الجزيرة العربية القديمة."
+      },
+      {
+        name: "حرة الرشايدة (بني رشيد)",
+        type: "قرى ومحافظات",
+        isSea: false,
+        coords: [25.7500, 40.0000],
+        desc: "أرض البراكين الخامدة واللابات البازلتية العجيبة في شمال غرب المملكة.",
+        then: "أرض بركانية وعرة حمت قوافل الصحراء ومنازل ومراعي أهل البادية.",
+        now: "متحف جيولوجي مفتوح ومقصد للمغامرين ومحبي استكشاف الفوهات والكهوف البركانية.",
+        national: "جزء أصيل من جغرافية الوطن يروي ملحمة أهل البادية وصبرهم.",
+        landmarks: "فوهة بركان جبل المار، الكهوف البازلتية، الفنون الصخرية",
+        nature: "حقول بازلتية سوداء شاسعة وفوهات بركانية تاريخية خامدة",
+        food: "المفروكة، السمن البري، التمر مع حليب النوق، خبز القرص",
+        history: "نشأت عبر ملايين السنين من التدفقات البركانية واحتضنت تاريخا عريقا."
+      },
+      {
+        name: "طريف (الحدود الشمالية)",
+        type: "طبيعة",
+        isSea: false,
+        coords: [31.6725, 38.6637],
+        desc: "عروس الشمال وأبرد مدن المملكة، محطة الثلوج وخط التابلاين التاريخي.",
+        then: "محطة رئيسية تأسست مع خط أنابيب النفط التابلاين في بادية الحماد.",
+        now: "مدينة عصرية ومركز تعديني بارز لمشروع وعد الشمال تسجل درجات حرارة تحت الصفر شتاء.",
+        national: "بوابة الدفاع والريادة الاقتصادية الحديثة ورمز الصمود في أقصى حدود الوطن.",
+        landmarks: "محطة خط التابلاين، محمية حرة الحرة، مدينة وعد الشمال الصناعية",
+        nature: "هضاب بازلتية وسهول الحماد الواسعة التي تكتسي بالصقيع والثلوج",
+        food: "المليحية الشمالية، المجللة بالسمن، لحم الحاشي المحمر",
+        history: "شهدت نشأة مجتمع حديث ارتبط ارتباطا وثيقا بصناعة وتصدير الطاقة."
+      },
+      {
+        name: "حائل",
+        type: "طبيعة",
+        isSea: false,
+        coords: [27.5219, 41.6961],
+        desc: "عروس الشمال وعاصمة الكرم الحاتمي وحاضنة جبلي أجا وسلمى الشامخين.",
+        then: "ملتقى قوافل البادية والتجارة القديمة وعاصمة الكرم العربي ومقر حاتم الطائي.",
+        now: "مركز زراعي واقتصادي بارز، ومقر لرالي حائل الدولي ووجهة للتخييم والسياحة الصحراوية.",
+        national: "محطة بارزة في مسيرة توحيد المملكة وحصن وطني عريق بكرم أهله وشهامتهم.",
+        landmarks: "قلعة عيرف، قصر القشلة التاريخي، جبال أجا وسلمى، نقوش جبة والشويمس",
+        nature: "جبال جرانيتية حمراء شاهقة، صحراء النفود الكبير، وواحات غناء",
+        food: "الكبيبا الحائلية، المقشوش، المرقوق، الجريش الحائلي",
+        history: "تاريخ عريق يضم نقوشاً صخرية مدرجة باليونسكو تعود لآلاف السنين قبل الميلاد."
+      },
+      {
+        name: "الباحة",
+        type: "طبيعة",
+        isSea: false,
+        coords: [20.0129, 41.4677],
+        desc: "حديقة الحجاز وسيدة الغابات والضباب ومملكة العمارة الحجرية الفريدة.",
+        then: "سراة وقرى جبلية تعتمد على الزراعة بمدرجات حجرية وأبراج حراسة حجرية عريقة.",
+        now: "وجهة سياحية صيفية خضراء بمنتزهاتها المعلقة وأجوائها المعتدلة ومهرجانات العسل السنوية.",
+        national: "رمز للأصالة الجنوبية ومصدر خير زراعي ومثال حي لصمود وتلاحم أبناء الوطن.",
+        landmarks: "غابة رغدان، قرية ذي عين التراثية، منتزه جبل شدا، الحصون القديمة",
+        nature: "غابات عرعر كثيفة، قمم جبلية شاهقة، أودية ضبابية ومناخ معتدل ماطر",
+        food: "الدغابيس، الخبزة المقناة على الجمر، العسل الصيفي البلدي",
+        history: "عمارة تراثية من حجر البازلت والمرو تشهد على براعة الأجداد عبر مئات السنين."
+      },
+      {
+        name: "الطائف",
+        type: "طبيعة",
+        isSea: false,
+        coords: [21.2841, 40.4244],
+        desc: "مدينة الورد وعروس المصائف السعودية وبوابة مكة المكرمة الشرقية.",
+        then: "بستان الحجاز القديم، ملتقى قريش في الصيف وموطن سوق عكاظ التاريخي العريق.",
+        now: "المصيف الأول بالمملكة، عاصمة صناعة الورد الطائفي عالمياً ومزارع الفواكه الموسمية.",
+        national: "مدينة الاتفاقات التاريخية والمصيف الملكي الذي احتضن قرارات تنموية وطنية مفصلية.",
+        landmarks: "سوق عكاظ، قصر شبرا التاريخي، تلفريك الهدا، مزارع الورد في الشفا",
+        nature: "مرتفعات الهدا والشفا الباردة، جبال مكسوة بالخضرة، ومزارع الفواكه",
+        food: "السليق الطائفي الأصيل، الرمان الطائفي، التين، التوت البري",
+        history: "مدينة تاريخية عريقة ارتبطت بالسيرة النبوية وبأقدم أسواق العرب الأدبية."
+      },
+      {
+        name: "محايل عسير",
+        type: "قرى ومحافظات",
+        isSea: false,
+        coords: [18.5442, 42.0573],
+        desc: "دفء تهامة ومشتى منطقة عسير النابض بالأسواق الشعبية والتراث الأصيل.",
+        then: "ملتقى أودية تهامة ومحطة تجارية لتبادل المحاصيل بين سراة عسير والساحل التهامي.",
+        now: "وجهة شتوية سياحية حيوية ومقر للفعاليات والمهرجانات التراثية والتسوق الشتوي.",
+        national: "جزء حيوي من تضاريس عسير يعكس تنوع الحياة الطبيعية وتكامل بيئات الوطن.",
+        landmarks: "سوق السبت الشعبي التراثي، وادي حلي، منتزه الحيلة، جبل غيلان",
+        nature: "أودية خضراء جارية، مناخ دافئ شتاء، وسهول تهامية محاطة بسلاسل السروات",
+        food: "الحنيذ التهامي على المرخ، الخمير، العريكة التهامية بالسمن والعسل",
+        history: "مركز تجاري تاريخي عريق يشتهر بأسواقه المفتوحة وصناعاته الحرفية الشعبية."
+      }
+    ];
+
+    var quizData = [
+      {
+        question: "ما هي المدينة أو المحافظة التاريخية التي انطلقت منها الدولة السعودية الأولى وعاصمة تأسيسها عام 1727م؟",
+        options: ["الرياض", "الدرعية", "جدة", "حائل"],
+        answer: 1,
+        explanation: "الدرعية هي مهد الدولة السعودية الأولى ومنطلق التأسيس والوحدة."
+      },
+      {
+        question: "أي من هذه المناطق تعرف بأنها أرخبيل جزر ساحرة تشتهر بمحمية الغزلان واللؤلؤ ومهرجان الحريد؟",
+        options: ["جزر فرسان", "الخبر", "العلا", "أبها"],
+        answer: 0,
+        explanation: "جزر فرسان تتبع منطقة جازان وتتميز بغابات المانجروف والبيئة البحرية الخلابة."
+      },
+      {
+        question: "ما هي القرية التراثية الرخامية الشهيرة في منطقة الباحة التي تتدفق بجوارها عين ماء عذبة دائمة الجريان؟",
+        options: ["قرية المفتاحة", "قرية ذي عين", "حي الطريف", "جبة"],
+        answer: 1,
+        explanation: "قرية ذي عين بنيت على جبل رخامي أبيض وتشتهر بمزارع الكادي والموز."
+      },
+      {
+        question: "أي مدينة سعودية تضم مشروع المستقبل العملاق نيوم وذا لاين وتطل على خليج العقبة والبحر الأحمر؟",
+        options: ["الدمام", "تبوك", "المدينة المنورة", "جازان"],
+        answer: 1,
+        explanation: "منطقة تبوك تحتضن مشاريع المستقبل الكبرى مثل نيوم وذا لاين وسندالة."
+      },
+      {
+        question: "أي قمة جبلية في شمال المملكة تشتهر باكتسائها بالثلوج البيضاء شتاء وتعد مقصدا سياحيا شهيرا؟",
+        options: ["جبل طويق", "جبل اللوز", "جبل شدا", "جبل أحد"],
+        answer: 1,
+        explanation: "جبل اللوز في منطقة تبوك يعد أشهر قمة تكتسي بالثلوج الناصعة سنويا في فصل الشتاء."
+      }
+    ];
+
+    var map = L.map('map').setView([24.5, 44.0], 5);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 18,
+      attribution: 'Esri Street Map'
+    }).addTo(map);
+
+    var markers = [];
+
+    function showDetails(city) {
+      document.getElementById('cityName').innerText = city.name;
+      document.getElementById('cityType').innerText = city.type;
+      document.getElementById('cityDesc').innerText = city.desc;
+      document.getElementById('cityThen').innerText = city.then;
+      document.getElementById('cityNow').innerText = city.now;
+      document.getElementById('cityNational').innerText = city.national;
+      document.getElementById('cityLandmarks').innerText = city.landmarks;
+      document.getElementById('cityNature').innerText = city.nature;
+      document.getElementById('cityFood').innerText = city.food;
+      document.getElementById('cityHistory').innerText = city.history;
+
+      var seaBadge = document.getElementById('citySeaBadge');
+      if (city.isSea) {
+        seaBadge.classList.remove('hidden');
+      } else {
+        seaBadge.classList.add('hidden');
+      }
+
+      document.getElementById('detailsList').classList.remove('hidden');
+    }
+
+    function renderMarkers(list) {
+      for (var i = 0; i < markers.length; i++) {
+        map.removeLayer(markers[i]);
+      }
+      markers = [];
+
+      list.forEach(function(city) {
+        var marker = L.marker(city.coords).addTo(map);
+        marker.bindPopup('<b>' + city.name + '</b><br><small>' + city.type + '</small>');
+        marker.on('click', function() {
+          showDetails(city);
+          map.setView(city.coords, 8);
+        });
+        markers.push(marker);
+      });
+    }
+
+    function filterCategory(cat) {
+      if (cat === 'all') {
+        renderMarkers(cities);
+        map.setView([24.5, 44.0], 5);
+      } else if (cat === 'بحر') {
+        var filteredSea = cities.filter(function(c) { return c.isSea; });
+        renderMarkers(filteredSea);
+        if (filteredSea.length > 0) map.setView([21.5, 39.5], 6);
+      } else {
+        var filteredType = cities.filter(function(c) { return c.type === cat; });
+        renderMarkers(filteredType);
+        if (filteredType.length > 0) map.setView(filteredType[0].coords, 7);
+      }
+    }
+
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+      var val = e.target.value.toLowerCase().trim();
+      var filtered = cities.filter(function(c) {
+        return c.name.includes(val) || 
+               c.desc.includes(val) || 
+               c.landmarks.includes(val) ||
+               c.national.includes(val) ||
+               c.history.includes(val);
+      });
+      renderMarkers(filtered);
+    });
+
+    var isQuizActive = false;
+
+    function toggleQuizView() {
+      isQuizActive = !isQuizActive;
+      var quizSection = document.getElementById('quizSection');
+      var mainMapSection = document.getElementById('mainMapSection');
+      var mapControls = document.getElementById('mapControls');
+      var quizBtnText = document.getElementById('quizBtnText');
+
+      if (isQuizActive) {
+        quizSection.classList.remove('hidden');
+        mainMapSection.classList.add('hidden');
+        mapControls.classList.add('hidden');
+        quizBtnText.innerText = "العودة إلى الخريطة والاستكشاف";
+        initQuiz();
+      } else {
+        quizSection.classList.add('hidden');
+        mainMapSection.classList.remove('hidden');
+        mapControls.classList.remove('hidden');
+        quizBtnText.innerText = "اختبر معلوماتك الوطنية";
+        setTimeout(function() { map.invalidateSize(); }, 300);
+      }
+    }
+
+    var currentQ = 0;
+    var score = 0;
+
+    function initQuiz() {
+      currentQ = 0;
+      score = 0;
+      document.getElementById('scoreCounter').innerText = score;
+      document.getElementById('totalQuestionsNum').innerText = quizData.length;
+      loadQuestion();
+    }
+
+    function loadQuestion() {
+      var q = quizData[currentQ];
+      document.getElementById('currentQuestionNum').innerText = currentQ + 1;
+      document.getElementById('quizQuestionText').innerText = q.question;
+      document.getElementById('quizFeedback').innerText = "";
+      document.getElementById('nextQuestionBtn').classList.add('hidden');
+
+      var optionsBox = document.getElementById('quizOptions');
+      optionsBox.innerHTML = "";
+
+      q.options.forEach(function(opt, idx) {
+        var btn = document.createElement('button');
+        btn.className = "w-full p-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-500 font-medium text-slate-800 transition text-right text-sm cursor-pointer";
+        btn.innerText = (idx + 1) + ". " + opt;
+        btn.onclick = function() { selectOption(idx, btn); };
+        optionsBox.appendChild(btn);
+      });
+    }
+
+    function selectOption(selectedIdx, clickedBtn) {
+      var q = quizData[currentQ];
+      var allBtns = document.getElementById('quizOptions').querySelectorAll('button');
+      allBtns.forEach(function(b) { b.disabled = true; });
+
+      var feedback = document.getElementById('quizFeedback');
+
+      if (selectedIdx === q.answer) {
+        clickedBtn.classList.remove('bg-slate-50', 'border-slate-200');
+        clickedBtn.classList.add('bg-emerald-100', 'border-emerald-600', 'text-emerald-900');
+        feedback.innerText = "ممتاز! " + q.explanation;
+        feedback.className = "text-sm font-bold text-emerald-700";
+        score += 10;
+        document.getElementById('scoreCounter').innerText = score;
+      } else {
+        clickedBtn.classList.remove('bg-slate-50', 'border-slate-200');
+        clickedBtn.classList.add('bg-rose-100', 'border-rose-500', 'text-rose-900');
+        allBtns[q.answer].classList.add('bg-emerald-100', 'border-emerald-600', 'text-emerald-900');
+        feedback.innerText = "إجابة غير دقيقة. " + q.explanation;
+        feedback.className = "text-sm font-bold text-rose-600";
+      }
+
+      document.getElementById('nextQuestionBtn').classList.remove('hidden');
+    }
+
+    function nextQuestion() {
+      currentQ++;
+      if (currentQ < quizData.length) {
+        loadQuestion();
+      } else {
+        var quizBox = document.getElementById('quizSection');
+        quizBox.innerHTML = '<div class="space-y-4 py-6">' +
+          '<span class="text-5xl">🏆🇸🇦</span>' +
+          '<h2 class="text-3xl font-black text-emerald-900">كفو! أنهيت التحدي الوطني</h2>' +
+          '<p class="text-slate-600">نتيجتك النهائية: <strong class="text-emerald-700 text-xl">' + score + '</strong> من ' + (quizData.length * 10) + ' نقطة</p>' +
+          '<p class="text-sm text-slate-500 max-w-md mx-auto">المملكة فخر وشموخ من شواطئها إلى قمم جبالها.. استمر في استكشاف باقي المدن عبر الخريطة!</p>' +
+          '<div class="pt-4 flex justify-center gap-3">' +
+            '<button onclick="location.reload()" class="px-5 py-2.5 bg-emerald-700 text-white rounded-xl font-bold hover:bg-emerald-800 transition cursor-pointer">إعادة الاختبار</button>' +
+            '<button onclick="toggleQuizView()" class="px-5 py-2.5 bg-slate-200 text-slate-800 rounded-xl font-bold hover:bg-slate-300 transition cursor-pointer">العودة للخريطة</button>' +
+          '</div>' +
+        '</div>';
+      }
+    }
+
+    window.addEventListener('load', function() {
+      setTimeout(function() { map.invalidateSize(); }, 300);
+    });
+    renderMarkers(cities);
+  </script>
+</body>
+</html>
